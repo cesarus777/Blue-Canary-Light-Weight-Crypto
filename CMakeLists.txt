@@ -20,5 +20,8 @@ endif()
 include_directories(include)
 
 add_subdirectory(lib)
+
+enable_testing()
+set(BUILD_TESTING ON)
 add_subdirectory(test)
 

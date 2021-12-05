@@ -1,2 +1,10 @@
-add_executable(AES_unittest AES.c)
-target_link_libraries(AES_unittest AES)
+set(TEST_LIST AES)
+
+if(BUILD_TESTING)
+  foreach(TEST IN LISTS TEST_LIST)
+    set(TEST_CMD "${TEST}_unittest")
+    add_executable("${TEST_CMD}" "${CMAKE_CURRENT_SOURCE_DIR}/${TEST}.c")
+    target_link_libraries("${TEST_CMD}" "${TEST}")
+    add_test(NAME "${TEST}" COMMAND "${TEST_CMD}")
+  endforeach()
+endif()
