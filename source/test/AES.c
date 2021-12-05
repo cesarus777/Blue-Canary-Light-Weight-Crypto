@@ -1,4 +1,4 @@
-#include "ciphers/AES.h"
+#include "cipher_interface.h"
 
 #include <assert.h>
 #include <stdint.h>
