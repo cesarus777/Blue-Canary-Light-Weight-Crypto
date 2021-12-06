@@ -3,10 +3,12 @@
 src_dir="$(readlink -f $(dirname $0)/..)"
 build_dir="${src_dir}/build"
 install_dir="${src_dir}/install"
+compiler="/usr/bin/cc"
 
 USAGE="Usage info: install.sh [OPTION(s)]
 Options:
     -h, --help                Show this help
+    -c <compiler>             Specify compiler to use. /usr/bin/cc is used by default
     -u, --use-cache           Use existing build cache. Cache from previous build wouldn't be deleted
     -S, --src-dir     <path>  Path to sources directory
     -B, --build-dir   <path>  Path to build directory
@@ -34,6 +36,10 @@ while [ -n "$1" ]; do
       echo "$USAGE"
       exit 0
       ;;
+    -c)
+      compiler="$2"
+      shift
+      ;;
     *)
       additional_cmake_properties="${additional_cmake_properties} $1"
       ;;
@@ -58,7 +64,7 @@ build_task="${build_dir}"
 install_task="-DCMAKE_INSTALL_PREFIX=/ -P ${build_dir}/cmake_install.cmake"
 
 if [ -z "${using_build_cache}" ]; then
-  cmake ${cmake_generator} ${cmake_task} || exit $?
+  CC="${compiler}" cmake ${cmake_generator} ${cmake_task} || exit $?
 fi
 
 cmake --build ${build_task} || exit $?

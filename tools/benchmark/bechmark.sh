@@ -1,11 +1,14 @@
 #!/bin/sh
 
 src_dir="$(readlink -f $(dirname $0)/../..)"
+benchmark_log="${src_dir}/benchmark.log"
 
-${src_dir}/tools/install.sh
-
-for benchmark in ${src_dir}/install/benchmark/*; do
-  benchmark_name="$(basename ${benchmark})"
-  echo ${benchmark_name} >> ${src_dir}/benchmark.log
-  ${benchmark} >> ${src_dir}/benchmark.log
+for cc in "gcc" "clang"; do
+  ${src_dir}/tools/install.sh -c "${cc}" || exit $?
+  echo "$(date) ${cc}" >> ${benchmark_log}
+  for benchmark in ${src_dir}/install/benchmark/*; do
+    benchmark_name="$(basename ${benchmark})"
+    echo ${benchmark_name} >> ${benchmark_log}
+    ${benchmark} >> ${benchmark_log}
+  done
 done
