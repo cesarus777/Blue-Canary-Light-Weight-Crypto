@@ -19,7 +19,10 @@ endif()
 # TODO: rewrite this line using 'target_include_directories'
 include_directories(include)
 
+set(CIPHER_LIST "" CACHE INTERNAL "")
 add_subdirectory(lib)
+message("-- Registered ciphers: ${CIPHER_LIST}")
+add_subdirectory(tools)
 
 enable_testing()
 set(BUILD_TESTING ON)
