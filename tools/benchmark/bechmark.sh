@@ -8,7 +8,7 @@ for cc in "gcc" "clang"; do
   echo "$(date) ${cc}" >> ${benchmark_log}
   for benchmark in ${src_dir}/install/benchmark/*; do
     benchmark_name="$(basename ${benchmark})"
-    echo -n ${benchmark_name} >> ${benchmark_log}
+    echo -n "${benchmark_name} " >> ${benchmark_log}
     ${benchmark} >> ${benchmark_log}
   done
 done
