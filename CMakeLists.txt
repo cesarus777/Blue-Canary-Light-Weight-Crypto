@@ -19,7 +19,8 @@ endif()
 # TODO: rewrite this line using 'target_include_directories'
 include_directories(include)
 
-set(CIPHER_LIST "" CACHE INTERNAL "")
+set(CIPHER_LIST ""  CACHE INTERNAL "")
+set(OPT_LEVELS O0 O1 O2 O3 Os CACHE INTERNAL "")
 add_subdirectory(lib)
 message("-- Registered ciphers: ${CIPHER_LIST}")
 add_subdirectory(tools)

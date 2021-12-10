@@ -14,46 +14,46 @@ enum {
   INV_SBOX_SIZE = 256,
 };
 
-typedef union {
-  uint32_t i32;
-  uint8_t i8[BYTES_IN_COL];
-} word_t;
-
 static const uint8_t rc_tab[Nr];
 static const uint8_t keys[BYTES_IN_COL * Nk];
 static const uint8_t Rcon[RCON_SIZE];
 static const uint8_t sbox[SBOX_SIZE];
 static const uint8_t inv_sbox[INV_SBOX_SIZE];
 
-static void rotate_word(word_t *w) {
-  uint8_t t = w->i8[0];
+static void rotate_word(uint8_t *a) {
+  uint8_t t;
 
-  w->i8[0] = w->i8[1];
-  w->i8[1] = w->i8[2];
-  w->i8[2] = w->i8[3];
-  w->i8[3] = t;
+  t = a[0];
+  a[0] = a[1];
+  a[1] = a[2];
+  a[2] = a[3];
+  a[3] = t;
 }
 
 static void run_key_schedule(const uint8_t *key, uint8_t *round_keys) {
+  uint8_t i;
   uint8_t rc = 0;
 
-  word_t tmp;
+  union {
+    uint32_t v32;
+    uint8_t v8[4];
+  } tmp;
 
   memcpy(round_keys, key, BYTES_IN_COL * Nk);
 
-  for (int i = 4; i < 44; ++i) {
-    tmp.i32 = ((uint32_t *)(round_keys))[i - 1];
+  for (i = 4; i < 44; ++i) {
+    tmp.v32 = ((uint32_t *)(round_keys))[i - 1];
     if (0 == i % 4) {
-      rotate_word(&tmp);
+      rotate_word((uint8_t *)&(tmp.v32));
 
-      tmp.i8[0] = sbox[tmp.i8[0]];
-      tmp.i8[1] = sbox[tmp.i8[1]];
-      tmp.i8[2] = sbox[tmp.i8[2]];
-      tmp.i8[3] = sbox[tmp.i8[3]];
-      tmp.i8[0] ^= rc_tab[rc];
+      tmp.v8[0] = sbox[tmp.v8[0]];
+      tmp.v8[1] = sbox[tmp.v8[1]];
+      tmp.v8[2] = sbox[tmp.v8[2]];
+      tmp.v8[3] = sbox[tmp.v8[3]];
+      tmp.v8[0] ^= rc_tab[rc];
       rc++;
     }
-    ((uint32_t *)(round_keys))[i] = ((uint32_t *)(round_keys))[i - 4] ^ tmp.i32;
+    ((uint32_t *)(round_keys))[i] = ((uint32_t *)(round_keys))[i - 4] ^ tmp.v32;
   }
 }
 
@@ -77,63 +77,59 @@ static inline uint8_t gmul(uint8_t a, uint8_t b) {
   return p;
 }
 
-static inline void decrypt_round(word_t *state, uint8_t *round_keys, int n) {
+static inline void decrypt_round(uint8_t *state, uint8_t *round_keys, int n) {
   assert(state);
   assert(round_keys);
   assert((n > 0) && (n <= Nr));
 
-  word_t tmp[Nb];
+  uint8_t tmp[BYTES_IN_COL * Nb];
   uint8_t t, u, v, w;
 
   // keyAdd
-  for (int i = 0; i < Nb; i++) {
-    for (int j = 0; j < BYTES_IN_COL; j++) {
-      if (Nr != n)
-        tmp[i].i8[j] = state[i].i8[j] ^ round_keys[BYTES_IN_COL * Nb * n + i];
-      else
-        state[i].i8[j] ^= round_keys[BYTES_IN_COL * Nb * n + i];
-    }
+  for (int i = 0; i < BYTES_IN_COL * Nb; ++i) {
+    if (Nr != n)
+      tmp[i] = state[i] ^ round_keys[BYTES_IN_COL * Nb * n + i];
+    else
+      state[i] ^= round_keys[BYTES_IN_COL * Nb * n + i];
   }
 
 #ifdef DEBUG_LOG
   fprintf(stderr, "state: ");
-  for (int i = 0; i < Nb; i++)
-    for (int j = 0; j < BYTES_IN_COL; j++)
-      fprintf(stderr, "0x%02x ", state[i].i8[j]);
+  for (int i = 0; i < BYTES_IN_COL * Nb; i++)
+    fprintf(stderr, "0x%02x ", state[i]);
   fprintf(stderr, "\n");
 #endif
 
   if (Nr != n) {
     // mixColums
     for (int i = 0; i < Nb; ++i) {
-      t = tmp[i].i8[3] ^ tmp[i].i8[2];
-      u = tmp[i].i8[1] ^ tmp[i].i8[0];
+      int offset = BYTES_IN_COL * i;
+      t = tmp[offset + 3] ^ tmp[offset + 2];
+      u = tmp[offset + 1] ^ tmp[offset + 0];
       v = t ^ u;
       v = gmul(0x09, v);
-      w = v ^ gmul(0x04, tmp[i].i8[2] ^ tmp[i].i8[0]);
-      v = v ^ gmul(0x04, tmp[i].i8[3] ^ tmp[i].i8[1]);
+      w = v ^ gmul(0x04, tmp[offset + 2] ^ tmp[offset + 0]);
+      v = v ^ gmul(0x04, tmp[offset + 3] ^ tmp[offset + 1]);
 
-      state[i].i8[3] =
-          tmp[i].i8[3] ^ v ^ gmul(0x02, tmp[i].i8[0] ^ tmp[i].i8[3]);
-      state[i].i8[2] = tmp[i].i8[2] ^ w ^ gmul(0x02, t);
-      state[i].i8[1] =
-          tmp[i].i8[1] ^ v ^ gmul(0x02, tmp[i].i8[2] ^ tmp[i].i8[1]);
-      state[i].i8[0] = tmp[i].i8[0] ^ w ^ gmul(0x02, u);
+      state[offset + 3] =
+          tmp[offset + 3] ^ v ^ gmul(0x02, tmp[offset + 0] ^ tmp[offset + 3]);
+      state[offset + 2] = tmp[offset + 2] ^ w ^ gmul(0x02, t);
+      state[offset + 1] =
+          tmp[offset + 1] ^ v ^ gmul(0x02, tmp[offset + 2] ^ tmp[offset + 1]);
+      state[offset + 0] = tmp[offset + 0] ^ w ^ gmul(0x02, u);
 
 #ifdef DEBUG_LOG
       fprintf(stderr, "%d state: ", i);
-      for (int k = 0; k < Nb; k++)
-        for (int l = 0; l < BYTES_IN_COL; l++)
-          fprintf(stderr, "0x%02x ", state[k].i8[l]);
+      for (int k = 0; k < BYTES_IN_COL * Nb; k++)
+        fprintf(stderr, "0x%02x ", state[k]);
       fprintf(stderr, "\n");
 #endif
     }
   } else {
 #ifdef DEBUG_LOG
     fprintf(stderr, "state: ");
-    for (int i = 0; i < Nb; i++)
-      for (int j = 0; j < BYTES_IN_COL; j++)
-        fprintf(stderr, "0x%02x ", state[i].i8[j]);
+    for (int i = 0; i < BYTES_IN_COL * Nb; i++)
+      fprintf(stderr, "0x%02x ", state[i]);
     fprintf(stderr, "\n");
 #endif
   }
@@ -142,35 +138,34 @@ static inline void decrypt_round(word_t *state, uint8_t *round_keys, int n) {
   for (int i = 1; i < BYTES_IN_COL; i++) {
     uint8_t swap_buf[4];
     for (int j = 0; j < Nb; j++) {
-      swap_buf[j] = state[j].i8[i];
+      int offset = i + j * BYTES_IN_COL;
+      swap_buf[j] = state[offset];
     }
     for (int j = 0; j < Nb; j++) {
-      state[j].i8[i] = swap_buf[(Nb - i + j) & 3];
+      int offset = i + j * BYTES_IN_COL;
+      state[offset] = swap_buf[(Nb - i + j) & 3];
     }
 #ifdef DEBUG_LOG
     fprintf(stderr, "%d state: ", i);
-    for (int k = 0; k < Nb; k++)
-      for (int l = 0; l < BYTES_IN_COL; l++)
-        fprintf(stderr, "0x%02x ", state[k].i8[l]);
+    for (int k = 0; k < BYTES_IN_COL * Nb; k++)
+      fprintf(stderr, "0x%02x ", state[k]);
     fprintf(stderr, "\n");
 #endif
   }
 
   // subBytes
-  for (int i = 0; i < Nb; i++)
-    for (int j = 0; j < BYTES_IN_COL; j++)
-      state[i].i8[j] = inv_sbox[state[i].i8[j]];
-
+  for (int i = 0; i < BYTES_IN_COL * Nb; ++i) {
+    state[i] = inv_sbox[state[i]];
+  }
 #ifdef DEBUG_LOG
   fprintf(stderr, "state: ");
-  for (int i = 0; i < Nb; i++)
-    for (int j = 0; j < BYTES_IN_COL; j++)
-      fprintf(stderr, "0x%02x ", state[i].i8[j]);
+  for (int i = 0; i < BYTES_IN_COL * Nb; i++)
+    fprintf(stderr, "0x%02x ", state[i]);
   fprintf(stderr, "\n");
 #endif
 }
 
-static void decrypt_impl(word_t *block, uint8_t *round_keys) {
+static void decrypt_impl(uint8_t *block, uint8_t *round_keys) {
   for (int i = Nr; i > 0; i--) {
 #ifdef DEBUG_LOG
     fprintf(stderr, "round %2d\n", i);
@@ -178,36 +173,32 @@ static void decrypt_impl(word_t *block, uint8_t *round_keys) {
     decrypt_round(block, round_keys, i);
   }
 
-  for (int i = 0; i < Nb; i++) {
-    for (int j = 0; j < BYTES_IN_COL; j++) {
-      block[i].i8[j] ^= round_keys[i];
-    }
+  for (int i = 0; i < BYTES_IN_COL * Nb; ++i) {
+    block[i] ^= round_keys[i];
   }
 }
 
 void decrypt(uint8_t *block) {
   uint8_t round_keys[BYTES_IN_COL * Nk * (Nr + 1)];
   run_key_schedule(keys, round_keys);
-  decrypt_impl((word_t *)block, round_keys);
+  decrypt_impl(block, round_keys);
 }
 
-static void encrypt_round(word_t *state, uint8_t *round_keys, int n) {
+static void encrypt_round(uint8_t *state, uint8_t *round_keys, int n) {
   assert(state);
   assert(round_keys);
   assert((n > 0) && (n <= Nr));
 
-  word_t tmp[Nb];
+  uint8_t tmp[BYTES_IN_COL * Nb];
 
   // subBytes
-  for (int i = 0; i < Nb; i++)
-    for (int j = 0; j < BYTES_IN_COL; j++)
-      tmp[i].i8[j] = sbox[state[i].i8[j]];
-
+  for (int i = 0; i < BYTES_IN_COL * Nb; i++) {
+    tmp[i] = sbox[state[i]];
+  }
 #ifdef DEBUG_LOG
   fprintf(stderr, "  tmp: ");
-  for (int i = 0; i < Nb; i++)
-    for (int j = 0; j < BYTES_IN_COL; j++)
-      fprintf(stderr, "0x%02x ", tmp[i].i8[j]);
+  for (int i = 0; i < BYTES_IN_COL * Nb; i++)
+    fprintf(stderr, "0x%02x ", tmp[i]);
   fprintf(stderr, "\n");
 #endif
 
@@ -215,16 +206,17 @@ static void encrypt_round(word_t *state, uint8_t *round_keys, int n) {
   for (int i = 1; i < BYTES_IN_COL; i++) {
     uint8_t swap_buf[Nb];
     for (int j = 0; j < Nb; j++) {
-      swap_buf[j] = tmp[j].i8[i];
+      int offset = i + j * BYTES_IN_COL;
+      swap_buf[j] = tmp[offset];
     }
     for (int j = 0; j < Nb; j++) {
-      tmp[j].i8[i] = swap_buf[(i + j) & 3];
+      int offset = i + j * BYTES_IN_COL;
+      tmp[offset] = swap_buf[(i + j) & 3];
     }
 #ifdef DEBUG_LOG
     fprintf(stderr, "%d tmp: ", i);
-    for (int k = 0; k < Nb; k++)
-      for (int l = 0; l < BYTES_IN_COL; l++)
-        fprintf(stderr, "0x%02x ", tmp[k].i8[l]);
+    for (int k = 0; k < 16; k++)
+      fprintf(stderr, "0x%02x ", tmp[k]);
     fprintf(stderr, "\n");
 #endif
   }
@@ -232,57 +224,56 @@ static void encrypt_round(word_t *state, uint8_t *round_keys, int n) {
   if (n != Nr) {
     // mixColums
     for (int i = 0; i < Nb; ++i) {
-      uint8_t t = tmp[i].i8[0] ^ tmp[i].i8[1] ^ tmp[i].i8[2] ^ tmp[i].i8[3];
+      int offset = i * BYTES_IN_COL;
+      uint8_t t =
+          tmp[offset + 0] ^ tmp[offset + 1] ^ tmp[offset + 2] ^ tmp[offset + 3];
 
-      state[i].i8[0] = gmul(2, tmp[i].i8[0] ^ tmp[i].i8[1]) ^ tmp[i].i8[0] ^ t;
+      state[offset + 0] =
+          gmul(2, tmp[offset + 0] ^ tmp[offset + 1]) ^ tmp[offset + 0] ^ t;
 
-      state[i].i8[1] = gmul(2, tmp[i].i8[1] ^ tmp[i].i8[2]) ^ tmp[i].i8[1] ^ t;
+      state[offset + 1] =
+          gmul(2, tmp[offset + 1] ^ tmp[offset + 2]) ^ tmp[offset + 1] ^ t;
 
-      state[i].i8[2] = gmul(2, tmp[i].i8[2] ^ tmp[i].i8[3]) ^ tmp[i].i8[2] ^ t;
+      state[offset + 2] =
+          gmul(2, tmp[offset + 2] ^ tmp[offset + 3]) ^ tmp[offset + 2] ^ t;
 
-      state[i].i8[3] = gmul(2, tmp[i].i8[3] ^ tmp[i].i8[0]) ^ tmp[i].i8[3] ^ t;
+      state[offset + 3] =
+          gmul(2, tmp[offset + 3] ^ tmp[offset + 0]) ^ tmp[offset + 3] ^ t;
 #ifdef DEBUG_LOG
       fprintf(stderr, "%d state: ", i);
-      for (int k = 0; k < Nb; k++)
-        for (int l = 0; l < BYTES_IN_COL; l++)
-          fprintf(stderr, "0x%02x ", state[k].i8[l]);
+      for (int k = 0; k < BYTES_IN_COL * Nb; k++)
+        fprintf(stderr, "0x%02x ", state[k]);
       fprintf(stderr, "\n");
 #endif
     }
   } else {
 #ifdef DEBUG_LOG
     fprintf(stderr, "state: ");
-    for (int i = 0; i < Nb; i++)
-      for (int j = 0; j < BYTES_IN_COL; j++)
-        fprintf(stderr, "0x%02x ", state[i].i8[j]);
+    for (int i = 0; i < BYTES_IN_COL * Nb; i++)
+      fprintf(stderr, "0x%02x ", state[i]);
     fprintf(stderr, "\n");
 #endif
   }
 
   // addKey
-  for (int i = 0; i < Nb; i++) {
-    for (int j = 0; j < BYTES_IN_COL; j++) {
-      state[i].i8[j] = (n == Nr ? tmp[i].i8[j] : state[i].i8[j]) ^
-                       round_keys[BYTES_IN_COL * Nb * n + i];
-    }
+  for (int i = 0; i < BYTES_IN_COL * Nb; i++) {
+    state[i] =
+        (n == Nr ? tmp[i] : state[i]) ^ round_keys[BYTES_IN_COL * Nb * n + i];
   }
 #ifdef DEBUG_LOG
   fprintf(stderr, "state: ");
-  for (int i = 0; i < Nb; i++)
-    for (int j = 0; j < BYTES_IN_COL; j++)
-      fprintf(stderr, "0x%02x ", state[i].i8[j]);
+  for (int i = 0; i < BYTES_IN_COL * Nb; i++)
+    fprintf(stderr, "0x%02x ", state[i]);
   fprintf(stderr, "\n");
 #endif
 }
 
-static void encrypt_impl(word_t *block, uint8_t *round_keys) {
+static void encrypt_impl(uint8_t *block, uint8_t *round_keys) {
   assert(block);
   assert(round_keys);
 
-  for (int i = 0; i < Nb; i++) {
-    for (int j = 0; j < BYTES_IN_COL; j++) {
-      block[i].i8[j] ^= round_keys[i];
-    }
+  for (int i = 0; i < BYTES_IN_COL * Nb; i++) {
+    block[i] ^= round_keys[i];
   }
 
   for (int i = 1; i <= Nr; i++) {
@@ -297,7 +288,7 @@ void encrypt(uint8_t *block) {
   assert(block);
   uint8_t round_keys[BYTES_IN_COL * Nk * (Nr + 1)];
   run_key_schedule(keys, round_keys);
-  encrypt_impl((word_t *)block, round_keys);
+  encrypt_impl(block, round_keys);
 }
 
 static const uint8_t rc_tab[Nr] = {0x01, 0x02, 0x04, 0x08, 0x10,

@@ -1,5 +1,4 @@
-set(CIPHER_NAME AES)
-
+set(CIPHER_NAME naive_AES)
 if(NOT "${CIPHER_NAME}" IN_LIST "${CIPHER_LIST}")
   set(CIPHER_LIST
       ${CIPHER_NAME} ${CIPHER_LIST}
@@ -7,6 +6,7 @@ if(NOT "${CIPHER_NAME}" IN_LIST "${CIPHER_LIST}")
 endif()
 
 set(sources cipher.c)
+
 add_library(${CIPHER_NAME} STATIC ${sources})
 
 foreach(OPT_LEVEL IN LISTS OPT_LEVELS)
