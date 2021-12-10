@@ -1,1 +1,1 @@
-# za.S.H.I.T.ka.project
+# Blue Canary Light-Weight Crypto
