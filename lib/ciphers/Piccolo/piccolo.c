@@ -273,26 +273,3 @@ void Decrypt(uint8_t *block)//, uint8_t *roundKeys)
     *x0 ^= READ_ROUND_KEY_WORD(rk[50]);
     *x2 ^= READ_ROUND_KEY_WORD(rk[51]);
 }
-
-
-int main (int argc, char *argv[]) {
-
-    /* init state */
-    STATE s;
-
-
-    int i = 0;
-
-    s.b[0] = 'Hello world';//strtoul(strtok(optarg," "),NULL,16);
-    s.b[1] = 01234567;//strtoul(strtok(NULL," "),NULL,16);
-    printf("M:       %08x %08x\n", s.b[0], s.b[1]);
-
-    Encrypt(s.b);//, k.rKey);
-
-    printf("C:       %08x %08x\n", s.b[0], s.b[1]);
-    Decrypt(s.b);//,k.rKey);
-    printf("DC:      %08x %08x\n", s.b[0], s.b[1]);
-   // s.b[0]
-    return EXIT_SUCCESS;
-}
-
