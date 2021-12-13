@@ -1,4 +1,4 @@
-#include <piccolo.h>
+#include "piccolo.h"
 #include <stdint.h>
 //#include "cipher.h"
 //#include "constants.h"
@@ -193,7 +193,7 @@ BYTE gm(BYTE a, BYTE b) {
     return g;
 }
 
-void Encrypt(uint8_t *block)//, uint8_t *roundKeys)
+void encrypt(uint8_t *block, uint8_t *roundKeys)
 {
 
     KEY k;
@@ -231,7 +231,7 @@ void Encrypt(uint8_t *block)//, uint8_t *roundKeys)
     *x2 ^= READ_ROUND_KEY_WORD(rk[53]);
 }
 
-void Decrypt(uint8_t *block)//, uint8_t *roundKeys)
+void decrypt(uint8_t *block, uint8_t *roundKeys)
 {
 
 
