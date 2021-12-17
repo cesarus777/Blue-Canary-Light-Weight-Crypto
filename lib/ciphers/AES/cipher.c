@@ -272,9 +272,15 @@ static void encrypt_impl(uint8_t *block, uint8_t *round_keys) {
   assert(block);
   assert(round_keys);
 
-  for (int i = 0; i < BYTES_IN_COL * Nb; i++) {
+  for (int i = 0; i < BYTES_IN_COL * Nb; i++)
     block[i] ^= round_keys[i];
-  }
+
+#ifdef DEBUG_LOG
+  fprintf(stderr, "     state: ");
+  for (int i = 0; i < BYTES_IN_COL * Nb; i++)
+    fprintf(stderr, "0x%02x ", block[i]);
+  fprintf(stderr, "\n");
+#endif
 
   for (int i = 1; i <= Nr; i++) {
 #ifdef DEBUG_LOG
@@ -286,8 +292,17 @@ static void encrypt_impl(uint8_t *block, uint8_t *round_keys) {
 
 void encrypt(uint8_t *block) {
   assert(block);
-  uint8_t round_keys[BYTES_IN_COL * Nk * (Nr + 1)];
+  enum { N_ROUND_KEYS = BYTES_IN_COL * Nk * (Nr + 1)};
+  uint8_t round_keys[N_ROUND_KEYS];
   run_key_schedule(keys, round_keys);
+
+#ifdef DEBUG_LOG
+  fprintf(stderr, "round keys: ");
+  for (int i = 0; i < N_ROUND_KEYS; i++)
+    fprintf(stderr, "0x%02x ", round_keys[i]);
+  fprintf(stderr, "\n");
+#endif
+
   encrypt_impl(block, round_keys);
 }
 
