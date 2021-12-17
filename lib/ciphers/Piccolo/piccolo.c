@@ -1,12 +1,7 @@
 #include "piccolo.h"
 #include <stdint.h>
-//#include "cipher.h"
-//#include "constants.h"
-//#include "primitives.h"
-//#include "data_types.h"
 
 
-#define ALIGNED __attribute__ ((aligned(ALIGN_PC_BOUNDRY)))
 
 SBOX_BYTE SBOX[] ={0x0e, 0x04, 0x0b, 0x02,0x03, 0x08, 0x00, 0x09,0x01, 0x0a, 0x07, 0x0f,0x06, 0x0c, 0x05, 0x0d};
 
