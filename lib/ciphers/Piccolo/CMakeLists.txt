@@ -8,6 +8,7 @@ endif()
 set(sources piccolo.c)
 
 add_library(${CIPHER_NAME} STATIC ${sources})
+target_compile_definitions("${CIPHER_NAME}" PUBLIC "PICCOLO=128")
 
 foreach(OPT_LEVEL IN LISTS OPT_LEVELS)
   set(CIPHER_LIB_NAME "${CIPHER_NAME}_${OPT_LEVEL}")
