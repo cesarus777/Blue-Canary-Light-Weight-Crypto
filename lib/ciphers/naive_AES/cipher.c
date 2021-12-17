@@ -89,9 +89,9 @@ static inline void decrypt_round(word_t *state, uint8_t *round_keys, int n) {
   for (int i = 0; i < Nb; i++) {
     for (int j = 0; j < BYTES_IN_COL; j++) {
       if (Nr != n)
-        tmp[i].i8[j] = state[i].i8[j] ^ round_keys[BYTES_IN_COL * Nb * n + i];
+        tmp[i].i8[j] = state[i].i8[j] ^ round_keys[BYTES_IN_COL * Nb * n + i * BYTES_IN_COL + j];
       else
-        state[i].i8[j] ^= round_keys[BYTES_IN_COL * Nb * n + i];
+        state[i].i8[j] ^= round_keys[BYTES_IN_COL * Nb * n + i * BYTES_IN_COL + j];
     }
   }
 
@@ -180,7 +180,7 @@ static void decrypt_impl(word_t *block, uint8_t *round_keys) {
 
   for (int i = 0; i < Nb; i++) {
     for (int j = 0; j < BYTES_IN_COL; j++) {
-      block[i].i8[j] ^= round_keys[i];
+      block[i].i8[j] ^= round_keys[i * BYTES_IN_COL + j];
     }
   }
 }
@@ -263,7 +263,7 @@ static void encrypt_round(word_t *state, uint8_t *round_keys, int n) {
   for (int i = 0; i < Nb; i++) {
     for (int j = 0; j < BYTES_IN_COL; j++) {
       state[i].i8[j] = (n == Nr ? tmp[i].i8[j] : state[i].i8[j]) ^
-                       round_keys[BYTES_IN_COL * Nb * n + i];
+                       round_keys[BYTES_IN_COL * Nb * n + i * BYTES_IN_COL + j];
     }
   }
 #ifdef DEBUG_LOG
@@ -281,9 +281,17 @@ static void encrypt_impl(word_t *block, uint8_t *round_keys) {
 
   for (int i = 0; i < Nb; i++) {
     for (int j = 0; j < BYTES_IN_COL; j++) {
-      block[i].i8[j] ^= round_keys[i];
+      block[i].i8[j] ^= round_keys[i * BYTES_IN_COL + j];
     }
   }
+
+#ifdef DEBUG_LOG
+  fprintf(stderr, "     state: ");
+  for (int i = 0; i < Nb; i++)
+    for (int j = 0; j < BYTES_IN_COL; j++)
+      fprintf(stderr, "0x%02x ", block[i].i8[j]);
+  fprintf(stderr, "\n");
+#endif
 
   for (int i = 1; i <= Nr; i++) {
 #ifdef DEBUG_LOG
@@ -295,8 +303,16 @@ static void encrypt_impl(word_t *block, uint8_t *round_keys) {
 
 void encrypt(uint8_t *block) {
   assert(block);
-  uint8_t round_keys[BYTES_IN_COL * Nk * (Nr + 1)];
+  enum { N_ROUND_KEYS = BYTES_IN_COL * Nk * (Nr + 1)};
+  uint8_t round_keys[N_ROUND_KEYS];
   run_key_schedule(keys, round_keys);
+
+#ifdef DEBUG_LOG
+  fprintf(stderr, "round keys: ");
+  for (int i = 0; i < N_ROUND_KEYS; i++)
+    fprintf(stderr, "0x%02x ", round_keys[i]);
+  fprintf(stderr, "\n");
+#endif
   encrypt_impl((word_t *)block, round_keys);
 }
 
